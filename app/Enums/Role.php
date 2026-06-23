@@ -2,7 +2,9 @@
 
 namespace App\Enums;
 
-enum Role: string
+use Filament\Support\Contracts\HasLabel;
+
+enum Role: string implements HasLabel
 {
     case Admin      = 'admin';
     case Supervisor = 'supervisor';  // 督导/质检
@@ -10,6 +12,11 @@ enum Role: string
     case Operator   = 'operator';    // 运营
     case Seo        = 'seo';
     case Manager    = 'manager';     // 主管
+
+    public function getLabel(): string
+    {
+        return $this->label();
+    }
 
     public function label(): string
     {

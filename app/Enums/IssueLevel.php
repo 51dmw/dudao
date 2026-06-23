@@ -3,8 +3,10 @@
 namespace App\Enums;
 
 use Carbon\Carbon;
+use Filament\Support\Contracts\HasColor;
+use Filament\Support\Contracts\HasLabel;
 
-enum IssueLevel: string
+enum IssueLevel: string implements HasLabel, HasColor
 {
     case P0 = 'P0';
     case P1 = 'P1';
@@ -18,6 +20,20 @@ enum IssueLevel: string
             self::P1 => 'P1 · 24小时内',
             self::P2 => 'P2 · 3天内',
             self::P3 => 'P3 · 优化建议',
+        };
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
+    }
+
+    public function getColor(): string
+    {
+        return match ($this) {
+            self::P0, self::P1 => 'danger',
+            self::P2           => 'warning',
+            self::P3           => 'info',
         };
     }
 

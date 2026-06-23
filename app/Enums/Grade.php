@@ -2,13 +2,26 @@
 
 namespace App\Enums;
 
-enum Grade: string
+use Filament\Support\Contracts\HasColor;
+use Filament\Support\Contracts\HasLabel;
+
+enum Grade: string implements HasLabel, HasColor
 {
     case A = 'A';
     case B = 'B';
     case C = 'C';
     case D = 'D';
     case E = 'E';
+
+    public function getLabel(): string
+    {
+        return $this->value;
+    }
+
+    public function getColor(): string
+    {
+        return $this->color();
+    }
 
     // 总分 → 等级
     public static function fromScore(float $score): self

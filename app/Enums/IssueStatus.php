@@ -2,7 +2,10 @@
 
 namespace App\Enums;
 
-enum IssueStatus: string
+use Filament\Support\Contracts\HasColor;
+use Filament\Support\Contracts\HasLabel;
+
+enum IssueStatus: string implements HasLabel, HasColor
 {
     case Pending    = 'pending';     // 待处理
     case Processing = 'processing';  // 处理中
@@ -21,6 +24,11 @@ enum IssueStatus: string
         };
     }
 
+    public function getLabel(): string
+    {
+        return $this->label();
+    }
+
     public function color(): string
     {
         return match ($this) {
@@ -30,6 +38,11 @@ enum IssueStatus: string
             self::Closed     => 'success',
             self::Evaluating => 'gray',
         };
+    }
+
+    public function getColor(): string
+    {
+        return $this->color();
     }
 
     // 允许流转到的下一状态（状态机）
