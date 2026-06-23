@@ -2,8 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Enums\IssueStatus;
+use App\Models\Inspection;
+use App\Models\Issue;
 use App\Models\User;
 use App\Models\Website;
+use App\Services\IssueWorkflow;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -37,15 +41,104 @@ class DemoSeeder extends Seeder
             ['黑料不打烊', 'heiliao.com', 58, 'E'],
         ];
 
+        $websites = collect();
         foreach ($sites as [$name, $domain, $score, $grade]) {
-            Website::create([
+            $websites->push(Website::create([
                 'name' => $name, 'domain' => $domain,
                 'pm_id' => $team->where('role', 'pm')->random()->id,
                 'operator_id' => $team->where('role', 'operator')->random()->id,
                 'current_score' => $score, 'current_grade' => $grade,
                 'status' => $score < 70 ? 'warning' : 'normal',
                 'last_inspected_at' => now(),
+            ]));
+        }
+
+        $this->seedIssues($websites, $team, $admin);
+        $this->seedInspections($websites, $team);
+    }
+
+    /** 造一批历史巡检记录，填充「督导巡检量」和「月均分趋势」 */
+    private function seedInspections(\Illuminate\Support\Collection $websites, \Illuminate\Support\Collection $team): void
+    {
+        $inspectors = $team->whereIn('id', $team->take(3)->pluck('id'))->values(); // 张三/李四/王五
+        $monthScores = [
+            ['2026-04', [78, 80, 82]],
+            ['2026-05', [80, 83, 85]],
+            ['2026-06', [84, 86, 88]],
+        ];
+
+        foreach ($monthScores as [$ym, $scores]) {
+            foreach ($scores as $i => $score) {
+                $grade = $score >= 90 ? 'A' : ($score >= 80 ? 'B' : ($score >= 70 ? 'C' : 'D'));
+                Inspection::create([
+                    'website_id'    => $websites->get($i % $websites->count())->id,
+                    'inspector_id'  => $inspectors->get($i % $inspectors->count())->id,
+                    'inspect_date'  => $ym . '-' . str_pad((string) (5 + $i * 3), 2, '0', STR_PAD_LEFT),
+                    'score_product' => 25, 'score_content' => 21, 'score_ux' => 17,
+                    'score_ad' => 13, 'score_exec' => 8,
+                    'total_score'   => $score, 'grade' => $grade, 'status' => 'reviewed',
+                ]);
+            }
+        }
+    }
+
+    /** 造一批演示问题，并把部分流转到关闭，让报表/绩效有数据 */
+    private function seedIssues(\Illuminate\Support\Collection $websites, \Illuminate\Support\Collection $team, User $admin): void
+    {
+        $supervisor = $team->first(fn ($u) => $u->role->value === 'supervisor');
+        $handlers   = $team->filter(fn ($u) => in_array($u->role->value, ['operator', 'pm']))->values();
+        $wf         = app(IssueWorkflow::class);
+
+        // [网站索引, 等级, 分类, 标题, 处理进度] —— 进度: pending/processing/verifying/closed/reject_then_close
+        $defs = [
+            [4, 'P0', 'product',   '首页打开白屏，核心模块加载失败', 'processing'],
+            [3, 'P1', 'ad',        '分类页前三条全是广告，遮挡内容', 'closed'],
+            [2, 'P1', 'content',   '娱乐分类近两周零更新',           'verifying'],
+            [3, 'P2', 'ux',        '移动端文章页图片错位',           'closed'],
+            [1, 'P2', 'product',   '相关推荐模块点击无跳转',         'reject_then_close'],
+            [5, 'P1', 'content',   '大量文章缺图、排版混乱',         'processing'],
+            [5, 'P2', 'ux',        '广告频率过高影响阅读',           'pending'],
+            [4, 'P2', 'product',   '搜索结果分页失效',               'closed'],
+            [2, 'P3', 'operation', '建议首页增加热门专题聚合位',     'pending'],
+            [0, 'P2', 'seo',       '部分文章页缺少 title 标签',      'closed'],
+        ];
+
+        $seq = 0;
+        foreach ($defs as [$wi, $level, $type, $title, $flow]) {
+            $seq++;
+            $assignee = $flow === 'pending' ? null : $handlers->get($seq % $handlers->count());
+            $issue = Issue::create([
+                'code'        => '#' . str_pad((string) $seq, 3, '0', STR_PAD_LEFT),
+                'website_id'  => $websites->get($wi)->id,
+                'level'       => $level,
+                'type'        => $type,
+                'title'       => $title,
+                'reporter_id' => $supervisor->id,
+                'assignee_id' => $assignee?->id,
+                'due_at'      => $level === 'P3' ? null : now()->addDays($level === 'P1' ? 1 : 3),
+                'status'      => IssueStatus::Pending->value,
+                'created_at'  => now()->subDays(rand(1, 6)),
             ]);
+
+            if (! $assignee) {
+                continue;
+            }
+
+            match ($flow) {
+                'processing' => $wf->transition($issue, IssueStatus::Processing, $assignee),
+                'verifying'  => $this->flow($wf, $issue, $assignee, ['processing', 'verifying']),
+                'closed'     => $this->flow($wf, $issue, $assignee, ['processing', 'verifying', 'closed']),
+                'reject_then_close' => $this->flow($wf, $issue, $assignee,
+                    ['processing', 'verifying', 'processing', 'verifying', 'closed']),
+                default => null,
+            };
+        }
+    }
+
+    private function flow(IssueWorkflow $wf, Issue $issue, User $by, array $steps): void
+    {
+        foreach ($steps as $s) {
+            $wf->transition($issue, IssueStatus::from($s), $by);
         }
     }
 }
