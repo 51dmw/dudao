@@ -90,10 +90,14 @@ class IssueResource extends Resource
             ->actions([
                 Tables\Actions\Action::make('advance')
                     ->label('推进状态')->icon('heroicon-m-arrow-right-circle')->button()->color('info')
-                    ->visible(fn (Issue $r) => ! empty($r->status->allowedNext()))
+                    // 督导线可推进任何问题；处理人只能推进指派给自己的问题
+                    ->visible(fn (Issue $r) => ! empty($r->status->allowedNext())
+                        && (auth()->user()->canSupervise() || $r->assignee_id === auth()->id()))
                     ->form(fn (Issue $r) => [
                         Forms\Components\Select::make('to')->label('流转到')->required()
                             ->options(collect($r->status->allowedNext())
+                                // 关闭(验收)仅督导线可选
+                                ->reject(fn (IssueStatus $s) => $s === IssueStatus::Closed && ! auth()->user()->canAudit())
                                 ->mapWithKeys(fn (IssueStatus $s) => [$s->value => $s->label()])->all()),
                         Forms\Components\Textarea::make('note')->label('备注')->rows(2),
                     ])
@@ -105,6 +109,7 @@ class IssueResource extends Resource
                     }),
                 Tables\Actions\Action::make('assign')
                     ->label('指派')->icon('heroicon-m-user-plus')->button()->color('gray')
+                    ->visible(fn () => auth()->user()->canSupervise())
                     ->form([
                         Forms\Components\Select::make('assignee_id')->label('责任人')->required()
                             ->options(User::active()->pluck('name', 'id')),
