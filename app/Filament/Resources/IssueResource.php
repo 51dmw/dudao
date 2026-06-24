@@ -17,6 +17,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Storage;
 
 class IssueResource extends Resource
 {
@@ -61,6 +62,12 @@ class IssueResource extends Resource
             Forms\Components\Textarea::make('description')->label('问题描述')->rows(3),
             Forms\Components\Textarea::make('fix_suggestion')->label('整改建议')->rows(2),
             Forms\Components\TextInput::make('page_url')->label('问题页面链接')->url(),
+            Forms\Components\FileUpload::make('screenshots')->label('问题截图')
+                ->image()->multiple()->reorderable()->openable()->downloadable()
+                ->maxFiles(8)->disk('public')->directory('issue-shots')
+                ->helperText('支持多张，拖拽可排序')
+                ->afterStateHydrated(fn (Forms\Components\FileUpload $component, ?Issue $record) =>
+                    $component->state($record ? $record->attachments->pluck('file_path')->all() : [])),
             Forms\Components\Grid::make(4)->schema([
                 Forms\Components\Select::make('reporter_id')->label('提交人')
                     ->relationship('reporter', 'name')->required(),
@@ -89,6 +96,10 @@ class IssueResource extends Resource
                 Tables\Columns\TextColumn::make('device')->label('终端')->badge()->color('gray')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('title')->label('巡检项/问题')->wrap()->limit(36)->searchable(),
+                Tables\Columns\ImageColumn::make('shots')->label('截图')
+                    ->getStateUsing(fn (Issue $r) => $r->attachments
+                        ->map(fn ($a) => Storage::disk('public')->url($a->file_path))->all())
+                    ->circular()->stacked()->limit(3)->limitedRemainingText(),
                 Tables\Columns\TextColumn::make('assignee.name')->label('责任人')
                     ->badge()
                     ->color(fn ($state) => $state ? 'gray' : 'danger')

@@ -32,6 +32,17 @@ class Issue extends Model
         ];
     }
 
+    // 手动建单未填编号时自动生成 #001 形式（IssueFactory 显式传值则不覆盖）
+    protected static function booted(): void
+    {
+        static::creating(function (Issue $issue) {
+            if (empty($issue->code)) {
+                $next = (int) (static::max('id') ?? 0) + 1;
+                $issue->code = '#' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+            }
+        });
+    }
+
     public function website(): BelongsTo    { return $this->belongsTo(Website::class); }
     public function inspection(): BelongsTo { return $this->belongsTo(Inspection::class); }
     public function reporter(): BelongsTo   { return $this->belongsTo(User::class, 'reporter_id'); }

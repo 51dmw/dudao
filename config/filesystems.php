@@ -41,7 +41,7 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'url' => '/storage', // 根相对路径：截图在任意 host/port 下都能显示
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
