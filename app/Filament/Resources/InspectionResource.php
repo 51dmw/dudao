@@ -25,7 +25,7 @@ class InspectionResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('巡检信息')->columns(3)->schema([
+            Forms\Components\Section::make('巡检信息')->columns(2)->schema([
                 Forms\Components\Select::make('website_id')->label('网站')
                     ->relationship('website', 'name')->required()->searchable(),
                 Forms\Components\Select::make('inspector_id')->label('巡检人')
@@ -33,6 +33,9 @@ class InspectionResource extends Resource
                     ->default(fn () => auth()->id()),
                 Forms\Components\DatePicker::make('inspect_date')->label('巡检日期')
                     ->required()->default(now()),
+                Forms\Components\Select::make('scope')->label('巡检范围')
+                    ->options(static::scopeOptions())->default('full')->required()->live()
+                    ->helperText('选某章节即只巡该页面，评分只算该部分'),
             ]),
 
             // 按维度分组渲染检查项开关：开=正常(默认)，关=异常(扣分并生成问题)
@@ -43,7 +46,24 @@ class InspectionResource extends Resource
         ]);
     }
 
+    // 巡检范围下拉选项：全站 + 各章节
+    protected static function scopeOptions(): array
+    {
+        $sections = CheckItem::where('is_active', true)
+            ->select('section')->groupBy('section')
+            ->orderByRaw('MIN(sort)')->pluck('section');
+
+        $total = CheckItem::where('is_active', true)->count();
+        $options = ['full' => "全站（{$total} 项）"];
+        foreach ($sections as $s) {
+            $options[$s] = $s;
+        }
+
+        return $options;
+    }
+
     // 按 章节(页面类型) → 模块 两级渲染巡检项开关；开=正常(默认)，关=异常(扣分并生成问题)
+    // 章节是否显示由「巡检范围」控制：full=全部显示，否则仅显示所选章节
     protected static function checklistSections(): array
     {
         return CheckItem::where('is_active', true)->orderBy('sort')->get()
@@ -64,6 +84,7 @@ class InspectionResource extends Resource
                 return Forms\Components\Section::make($section)
                     ->description($itemsInSection->count() . ' 项')
                     ->collapsed()->collapsible()
+                    ->visible(fn (Forms\Get $get) => in_array($get('scope') ?? 'full', ['full', $section], true))
                     ->schema($moduleFieldsets);
             })->values()->all();
     }
@@ -75,6 +96,9 @@ class InspectionResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('website.name')->label('网站')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('inspector.name')->label('巡检人'),
+                Tables\Columns\TextColumn::make('scope')->label('范围')->badge()
+                    ->color(fn ($state) => $state === 'full' ? 'gray' : 'info')
+                    ->formatStateUsing(fn ($state) => $state === 'full' ? '全站' : $state),
                 Tables\Columns\TextColumn::make('inspect_date')->label('日期')->date('Y-m-d')->sortable(),
                 Tables\Columns\TextColumn::make('total_score')->label('总分')->sortable()
                     ->badge()->color(fn (Inspection $r) => $r->grade?->color() ?? 'gray'),

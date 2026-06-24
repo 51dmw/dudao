@@ -27,17 +27,24 @@ class CreateInspection extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         $items = $data['items'] ?? [];   // [check_item_id => bool(是否正常)]
+        $scope = $data['scope'] ?? 'full';
 
-        return DB::transaction(function () use ($data, $items) {
+        return DB::transaction(function () use ($data, $items, $scope) {
             $inspection = Inspection::create([
                 'website_id'   => $data['website_id'],
                 'inspector_id' => $data['inspector_id'],
                 'inspect_date' => $data['inspect_date'],
+                'scope'        => $scope,
                 'remark'       => $data['remark'] ?? null,
                 'status'       => 'submitted',
             ]);
 
-            foreach (CheckItem::all() as $item) {
+            // 仅对巡检范围内的检查项写明细（评分/生成问题只算这部分）
+            $query = CheckItem::where('is_active', true);
+            if ($scope !== 'full') {
+                $query->where('section', $scope);
+            }
+            foreach ($query->get() as $item) {
                 $inspection->results()->create([
                     'check_item_id' => $item->id,
                     'is_normal'     => (bool) ($items[$item->id] ?? true),

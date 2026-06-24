@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Inspection extends Model
 {
     protected $fillable = [
-        'website_id', 'inspector_id', 'inspect_date',
+        'website_id', 'inspector_id', 'inspect_date', 'scope',
         'score_product', 'score_content', 'score_ux', 'score_ad', 'score_exec',
         'score_adjust', 'total_score', 'grade', 'status', 'remark',
     ];
