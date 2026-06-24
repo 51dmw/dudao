@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\Device;
 use App\Enums\IssueLevel;
 use App\Enums\IssueStatus;
+use App\Enums\PageType;
+use App\Enums\RecheckResult;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,18 +14,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Issue extends Model
 {
     protected $fillable = [
-        'code', 'website_id', 'inspection_id', 'level', 'type', 'title',
-        'description', 'page_url', 'reporter_id', 'assignee_id', 'due_at',
-        'status', 'repeat_count', 'closed_at',
+        'code', 'website_id', 'inspection_id', 'level', 'type', 'page_type', 'device',
+        'title', 'description', 'fix_suggestion', 'page_url', 'reporter_id', 'assignee_id',
+        'due_at', 'status', 'repeat_count', 'recheck_result', 'remark', 'closed_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'level'     => IssueLevel::class,
-            'status'    => IssueStatus::class,
-            'due_at'    => 'datetime',
-            'closed_at' => 'datetime',
+            'level'          => IssueLevel::class,
+            'status'         => IssueStatus::class,
+            'page_type'      => PageType::class,
+            'device'         => Device::class,
+            'recheck_result' => RecheckResult::class,
+            'due_at'         => 'datetime',
+            'closed_at'      => 'datetime',
         ];
     }
 

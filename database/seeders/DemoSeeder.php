@@ -89,35 +89,38 @@ class DemoSeeder extends Seeder
         $handlers   = $team->filter(fn ($u) => in_array($u->role->value, ['operator', 'pm']))->values();
         $wf         = app(IssueWorkflow::class);
 
-        // [网站索引, 等级, 分类, 标题, 处理进度] —— 进度: pending/processing/verifying/closed/reject_then_close
+        // [网站索引, 优先级, 分类, 页面类型, 终端, 标题, 整改建议, 处理进度]
         $defs = [
-            [4, 'P0', 'product',   '首页打开白屏，核心模块加载失败', 'processing'],
-            [3, 'P1', 'ad',        '分类页前三条全是广告，遮挡内容', 'closed'],
-            [2, 'P1', 'content',   '娱乐分类近两周零更新',           'verifying'],
-            [3, 'P2', 'ux',        '移动端文章页图片错位',           'closed'],
-            [1, 'P2', 'product',   '相关推荐模块点击无跳转',         'reject_then_close'],
-            [5, 'P1', 'content',   '大量文章缺图、排版混乱',         'processing'],
-            [5, 'P2', 'ux',        '广告频率过高影响阅读',           'pending'],
-            [4, 'P2', 'product',   '搜索结果分页失效',               'closed'],
-            [2, 'P3', 'operation', '建议首页增加热门专题聚合位',     'pending'],
-            [0, 'P2', 'seo',       '部分文章页缺少 title 标签',      'closed'],
+            [4, 'P0', 'product',  'home',     'all',    '首页打开白屏，核心模块加载失败', '排查首页接口超时，加容错降级',   'processing'],
+            [3, 'P1', 'ad',       'category', 'pc',     '分类页前三条全是广告，遮挡内容', '前三条至少保留 2 条内容',         'closed'],
+            [2, 'P1', 'content',  'category', 'all',    '娱乐分类近两周零更新',           '补充近两周内容，恢复更新节奏',   'verifying'],
+            [3, 'P2', 'ux',       'article',  'mobile', '移动端文章页图片错位',           '修复移动端图片宽度自适应',       'closed'],
+            [1, 'P2', 'product',  'article',  'all',    '相关推荐模块点击无跳转',         '修复推荐位链接绑定',             'reject_then_close'],
+            [5, 'P1', 'content',  'article',  'all',    '大量文章缺图、排版混乱',         '统一排版模板，补齐配图',         'processing'],
+            [5, 'P2', 'ux',       'article',  'mobile', '广告频率过高影响阅读',           '降低文中广告插入频率',           'pending'],
+            [4, 'P2', 'product',  'search',   'all',    '搜索结果分页失效',               '修复分页参数传递',               'closed'],
+            [2, 'P3', 'operation','home',     'all',    '建议首页增加热门专题聚合位',     '评估首页增加专题模块',           'pending'],
+            [0, 'P2', 'seo',      'article',  'all',    '部分文章页缺少 title 标签',      '补全文章页 title 标签',          'closed'],
         ];
 
         $seq = 0;
-        foreach ($defs as [$wi, $level, $type, $title, $flow]) {
+        foreach ($defs as [$wi, $level, $type, $pageType, $device, $title, $fix, $flow]) {
             $seq++;
             $assignee = $flow === 'pending' ? null : $handlers->get($seq % $handlers->count());
             $issue = Issue::create([
-                'code'        => '#' . str_pad((string) $seq, 3, '0', STR_PAD_LEFT),
-                'website_id'  => $websites->get($wi)->id,
-                'level'       => $level,
-                'type'        => $type,
-                'title'       => $title,
-                'reporter_id' => $supervisor->id,
-                'assignee_id' => $assignee?->id,
-                'due_at'      => $level === 'P3' ? null : now()->addDays($level === 'P1' ? 1 : 3),
-                'status'      => IssueStatus::Pending->value,
-                'created_at'  => now()->subDays(rand(1, 6)),
+                'code'           => '#' . str_pad((string) $seq, 3, '0', STR_PAD_LEFT),
+                'website_id'     => $websites->get($wi)->id,
+                'level'          => $level,
+                'type'           => $type,
+                'page_type'      => $pageType,
+                'device'         => $device,
+                'title'          => $title,
+                'fix_suggestion' => $fix,
+                'reporter_id'    => $supervisor->id,
+                'assignee_id'    => $assignee?->id,
+                'due_at'         => $level === 'P3' ? null : now()->addDays($level === 'P1' ? 1 : 3),
+                'status'         => IssueStatus::Pending->value,
+                'created_at'     => now()->subDays(rand(1, 6)),
             ]);
 
             if (! $assignee) {

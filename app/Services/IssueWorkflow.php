@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\IssueStatus;
+use App\Enums\RecheckResult;
 use App\Models\Issue;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
@@ -22,9 +23,15 @@ class IssueWorkflow
             ]);
         }
 
-        // 验收不通过：退回处理中，重复打回计数 +1
+        // 验收不通过：退回处理中，重复打回计数 +1，复检结果记为「不通过」
         if ($current === IssueStatus::Verifying && $target === IssueStatus::Processing) {
             $issue->increment('repeat_count');
+            $issue->recheck_result = RecheckResult::Fail;
+        }
+
+        // 验收通过（关闭）：复检结果记为「通过」
+        if ($target === IssueStatus::Closed) {
+            $issue->recheck_result = RecheckResult::Pass;
         }
 
         $issue->status = $target;
