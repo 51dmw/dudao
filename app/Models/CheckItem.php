@@ -10,7 +10,10 @@ class CheckItem extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['dimension_id', 'name', 'points', 'default_level', 'sort', 'is_active'];
+    protected $fillable = [
+        'dimension_id', 'section', 'module', 'terminal',
+        'name', 'points', 'default_level', 'sort', 'is_active',
+    ];
 
     protected function casts(): array
     {

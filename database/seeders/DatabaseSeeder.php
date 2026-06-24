@@ -9,8 +9,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            DimensionSeeder::class,  // 5 维度 + 13 检查项模板
-            DemoSeeder::class,       // 管理员 + 团队 + 演示网站
+            DimensionSeeder::class,  // 5 评分维度
+            ChecklistSeeder::class,  // 巡检项目录：页面类型→模块→巡检项(~150)
+            DemoSeeder::class,       // 管理员 + 团队 + 演示网站/问题/巡检
         ]);
     }
 }

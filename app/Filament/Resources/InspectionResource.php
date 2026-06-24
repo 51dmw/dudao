@@ -3,7 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\InspectionResource\Pages;
-use App\Models\Dimension;
+use App\Models\CheckItem;
 use App\Models\Inspection;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -43,21 +43,29 @@ class InspectionResource extends Resource
         ]);
     }
 
+    // 按 章节(页面类型) → 模块 两级渲染巡检项开关；开=正常(默认)，关=异常(扣分并生成问题)
     protected static function checklistSections(): array
     {
-        return Dimension::with('checkItems')->orderBy('sort')->get()
-            ->map(function (Dimension $dim) {
-                $toggles = $dim->checkItems->map(fn ($item) =>
-                    Forms\Components\Toggle::make("items.{$item->id}")
-                        ->label("{$item->name}（{$item->points}分）")
-                        ->onColor('success')->offColor('danger')
-                        ->default(true)
-                        ->helperText('开=正常 / 关=异常')
-                )->all();
+        return CheckItem::where('is_active', true)->orderBy('sort')->get()
+            ->groupBy('section')
+            ->map(function ($itemsInSection, $section) {
+                $moduleFieldsets = $itemsInSection->groupBy('module')
+                    ->map(function ($items, $module) {
+                        $toggles = $items->map(fn (CheckItem $item) =>
+                            Forms\Components\Toggle::make("items.{$item->id}")
+                                ->label($item->name . ($item->default_level ? "　[{$item->default_level->value}]" : ''))
+                                ->inline(false)->default(true)
+                                ->onColor('success')->offColor('danger')
+                        )->all();
 
-                return Forms\Components\Section::make("{$dim->name}（满分 {$dim->max_score}）")
-                    ->columns(3)->collapsible()->schema($toggles);
-            })->all();
+                        return Forms\Components\Fieldset::make($module)->columns(2)->schema($toggles);
+                    })->values()->all();
+
+                return Forms\Components\Section::make($section)
+                    ->description($itemsInSection->count() . ' 项')
+                    ->collapsed()->collapsible()
+                    ->schema($moduleFieldsets);
+            })->values()->all();
     }
 
     public static function table(Table $table): Table

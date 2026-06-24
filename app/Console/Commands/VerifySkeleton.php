@@ -40,18 +40,19 @@ class VerifySkeleton extends Command
             'status'       => 'submitted',
         ]);
 
-        $abnormal = ['功能完整性', '广告配置检查']; // 默认 P1 / P1
+        // 取两个 P1 巡检项标记为异常（扣分制：P1 各扣 10 → 100-20=80）
+        $abnormalIds = CheckItem::where('default_level', 'P1')->limit(2)->pluck('id')->all();
         foreach (CheckItem::all() as $item) {
             $inspection->results()->create([
                 'check_item_id' => $item->id,
-                'is_normal'     => ! in_array($item->name, $abnormal, true),
+                'is_normal'     => ! in_array($item->id, $abnormalIds, true),
             ]);
         }
 
-        // 2) 评分引擎
+        // 2) 评分引擎（优先级扣分制）
         app(ScoringService::class)->calculate($inspection);
         $inspection->refresh();
-        // 满分 100，扣掉 功能完整性(10) + 广告配置(10) = 80 → B
+        // 满分 100，两个 P1 各扣 10 = 80 → B
         $this->assert($inspection->total_score == 80.0, "总分应为 80，实际 {$inspection->total_score}");
         $this->assert($inspection->grade->value === 'B', "等级应为 B，实际 {$inspection->grade->value}");
         $this->assert($website->fresh()->current_score == 80.0, '网站缓存分应同步为 80');

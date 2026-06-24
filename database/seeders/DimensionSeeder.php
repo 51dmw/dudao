@@ -2,49 +2,29 @@
 
 namespace Database\Seeders;
 
-use App\Models\CheckItem;
 use App\Models\Dimension;
 use Illuminate\Database\Seeder;
 
+/**
+ * 5 大评分维度（用于分类归口与报表）。
+ * 巡检项目录见 ChecklistSeeder（页面类型→模块→巡检项）。
+ */
 class DimensionSeeder extends Seeder
 {
     public function run(): void
     {
-        $data = [
-            ['name' => '产品质量',  'code' => 'product', 'max' => 30, 'items' => [
-                ['页面结构与展示', 10, 'P2'], ['功能完整性', 10, 'P1'], ['产品体验', 10, 'P2'],
-            ]],
-            ['name' => '内容运营',  'code' => 'content', 'max' => 25, 'items' => [
-                ['内容更新', 10, 'P1'], ['内容质量', 10, 'P2'], ['内容运营策略', 5, 'P3'],
-            ]],
-            ['name' => '用户体验',  'code' => 'ux', 'max' => 20, 'items' => [
-                ['浏览体验', 10, 'P2'], ['移动端体验', 5, 'P2'], ['用户路径体验', 5, 'P3'],
-            ]],
-            ['name' => '商业化运营','code' => 'ad', 'max' => 15, 'items' => [
-                ['广告配置检查', 10, 'P1'], ['广告体验检查', 5, 'P2'],
-            ]],
-            ['name' => '运营执行',  'code' => 'exec', 'max' => 10, 'items' => [
-                ['页面维护情况', 5, 'P3'], ['需求执行情况', 5, 'P3'],
-            ]],
+        $dims = [
+            ['产品质量', 'product', 30],
+            ['内容运营', 'content', 25],
+            ['用户体验', 'ux', 20],
+            ['商业化运营', 'ad', 15],
+            ['运营执行', 'exec', 10],
         ];
 
-        foreach ($data as $sort => $d) {
-            $dim = Dimension::create([
-                'name'      => $d['name'],
-                'code'      => $d['code'],
-                'max_score' => $d['max'],
-                'sort'      => $sort + 1,
+        foreach ($dims as $sort => [$name, $code, $max]) {
+            Dimension::create([
+                'name' => $name, 'code' => $code, 'max_score' => $max, 'sort' => $sort + 1,
             ]);
-
-            foreach ($d['items'] as $i => [$name, $points, $level]) {
-                CheckItem::create([
-                    'dimension_id'  => $dim->id,
-                    'name'          => $name,
-                    'points'        => $points,
-                    'default_level' => $level,
-                    'sort'          => $i + 1,
-                ]);
-            }
         }
     }
 }
